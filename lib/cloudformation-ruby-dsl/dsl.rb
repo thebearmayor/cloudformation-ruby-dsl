@@ -52,6 +52,14 @@ def default_region
   ENV['EC2_REGION'] || ENV['AWS_DEFAULT_REGION'] || 'us-east-1'
 end
 
+class Parameter < String
+  attr_accessor :default, :use_previous_value
+
+  def initialize string
+    super string.to_s
+  end
+end
+
 # Core interpreter for the DSL
 class TemplateDSL < JsonObjectDSL
   attr_reader :parameters,
@@ -81,16 +89,21 @@ class TemplateDSL < JsonObjectDSL
     if @interactive
       @parameters[name] ||= _get_parameter_from_cli(name, options)
     else
-      @parameters[name] ||= options[:Default]
+      @parameters[name] ||= Parameter.new('')
+      @parameters[name].default = options[:Default]
+      @parameters[name].use_previous_value = options[:UsePreviousValue]
     end
   end
 
   # Find parameters where the specified attribute is true then remove the attribute from the cfn template.
-  def excise_parameter_attribute!(attribute)
-    marked_parameters = []
+  def excise_parameter_attributes!(attributes)
+    marked_parameters = {}
     @dict.fetch(:Parameters, {}).each do |param, options|
-      if options.delete(attribute.to_sym) or options.delete(attribute.to_s)
-        marked_parameters << param
+      attributes.each do |attribute|
+        marked_parameters[attribute] ||= []
+        if options.delete(attribute.to_sym) or options.delete(attribute.to_s)
+          marked_parameters[attribute] << param
+        end
       end
     end
     marked_parameters
