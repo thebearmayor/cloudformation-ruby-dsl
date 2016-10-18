@@ -79,7 +79,6 @@ Invoke an intrinsic CloudFormation function.
 - `join(delim, *list)`
 - `select(index, list)`
 - `ref(name)`
-- `import_value(value)`
 
 Intrinsic conditionals are also supported, with some syntactic sugar.
 - `fn_not(condition)`
