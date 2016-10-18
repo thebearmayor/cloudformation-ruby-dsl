@@ -78,26 +78,32 @@ end
 
 # Parse command-line arguments and return the parameters and region
 def parse_args
-  stack_name = nil
-  parameters = {}
-  region     = default_region
-  profile    = nil
-  nopretty   = false
+  args = {
+    :stack_name  => nil,
+    :parameters  => {},
+    :interactive => false,
+    :region      => default_region,
+    :profile     => nil,
+    :nopretty    => false,
+  }
   ARGV.slice_before(/^--/).each do |name, value|
     case name
     when '--stack-name'
-      stack_name = value
+      args[:stack_name] = value
     when '--parameters'
-      parameters = Hash[value.split(/;/).map { |pair| pair.split(/=/, 2) }]  #/# fix for syntax highlighting
+      args[:parameters] = Hash[value.split(/;/).map { |pair| pair.split(/=/, 2) }]  #/# fix for syntax highlighting
+    when '--interactive'
+      args[:interactive] = true
     when '--region'
-      region = value
+      args[:region] = value
     when '--profile'
-      profile = value
+      args[:profile] = value
     when '--nopretty'
-      nopretty = true
+      args[:nopretty] = true
     end
   end
-  [stack_name, parameters, region, profile, nopretty]
+
+  args
 end
 
 def validate_action(action)
@@ -294,12 +300,15 @@ def cfn(template)
           template_body: template_string,
           parameters: template.parameters.map { |k,v| {parameter_key: k, parameter_value: v}}.to_a,
           tags: cfn_tags.map { |k,v| {"key" => k.to_s, "value" => v} }.to_a,
-          capabilities: ["CAPABILITY_IAM"],
+          capabilities: ["CAPABILITY_NAMED_IAM"],
       }
 
       # fill in options from the command line
       extra_options = parse_arg_array_as_hash(options)
       create_stack_opts = extra_options.merge(create_stack_opts)
+
+      # remove custom options
+      create_stack_opts.delete(:interactive)
 
       # create stack
       create_result = cfn_client.create_stack(create_stack_opts)
@@ -486,12 +495,15 @@ def cfn(template)
           template_body: template_string,
           parameters: template.parameters.map { |k,v| {parameter_key: k, parameter_value: v}}.to_a,
           tags: cfn_tags.map { |k,v| {"key" => k.to_s, "value" => v.to_s} }.to_a,
-          capabilities: ["CAPABILITY_IAM"],
+          capabilities: ["CAPABILITY_NAMED_IAM"],
       }
 
       # fill in options from the command line
       extra_options = parse_arg_array_as_hash(options)
       update_stack_opts = extra_options.merge(update_stack_opts)
+
+      # remove custom options
+      update_stack_opts.delete(:interactive)
 
       # update the stack
       update_result = cfn_client.update_stack(update_stack_opts)
@@ -567,6 +579,6 @@ end
 
 # Main entry point
 def template(&block)
-  stack_name, parameters, aws_region, aws_profile, nopretty = parse_args
-  raw_template(parameters, stack_name, aws_region, aws_profile, nopretty, &block)
+  options = parse_args
+  raw_template(options, &block)
 end
