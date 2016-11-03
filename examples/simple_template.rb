@@ -2,8 +2,9 @@
 require 'bundler/setup'
 require 'cloudformation-ruby-dsl/cfntemplate'
 
-template = template do
+tmpl = template do
+  @stack_name = "hello-bucket-example"
   resource "HelloBucket", :Type => "AWS::S3::Bucket"
 end
 
-template.exec!
+tmpl.exec!
