@@ -104,7 +104,7 @@ module FileHelpers
   # Delete a file from the spec/tmp directory
   def delete_test_file(filename)
     abs_path = File.join(from_project_root("spec/tmp"), filename)
-    FileUtils.rm(abs_path)
+    FileUtils.rm(abs_path) if File.exist?(abs_path)
   end
 
   ##
