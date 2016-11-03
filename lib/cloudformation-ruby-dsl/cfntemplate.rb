@@ -94,7 +94,6 @@ def parse_args
       args[:parameters] = Hash[value.split(/;/).map { |pair| parts = pair.split(/=/, 2); [ parts[0], Parameter.new(parts[1]) ] }]  #/# fix for syntax highlighting
     when '--interactive'
       args[:interactive] = true
-default and previous values of a parameter. Updated excise_parameter_attributes! to support multiple parameters.
     when '--region'
       args[:region] = value
     when '--profile'
