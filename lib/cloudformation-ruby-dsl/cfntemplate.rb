@@ -286,7 +286,11 @@ template.rb create --stack-name my_stack --parameters "BucketName=bucket-s3-stat
 
     # Sort the parameter strings alphabetically to make them easily comparable
     old_parameters_string = old_parameters.sort.map { |key, value| %Q(PARAMETER "#{key}=#{value}"\n) }.join
-    parameters_string     = template.parameters.sort.map { |key, value| "PARAMETER \"#{key}=#{!(value.empty? && value.use_previous_value) ? value : old_parameters[key]}\"\n" }.join
+    parameters_string     = template.parameters.sort.map do |key, value|
+      value = old_parameters[key] if value.empty? && value.use_previous_value && !old_parameters[key].to_s.empty?
+      value = value.default if value.empty? && !value.default.to_s.empty?
+      "PARAMETER \"#{key}=#{value}\"\n"
+    end.join
 
     # set default diff options
     Diffy::Diff.default_options.merge!(
