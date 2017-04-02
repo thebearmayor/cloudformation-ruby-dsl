@@ -280,17 +280,23 @@ template.rb create --stack-name my_stack --parameters "BucketName=bucket-s3-stat
     old_tags       = old_attributes.tags
     old_parameters = Hash[old_attributes.parameters.map { |p| [p.parameter_key, p.parameter_value]}]
 
+    new_parameters = template.parameters.map do |key, value|
+      value = Parameter.new(old_parameters[key]) if value.is_default && value.use_previous_value && !old_parameters[key].to_s.empty?
+      [key, value]
+    end.to_h
+
     # Sort the tag strings alphabetically to make them easily comparable
     old_tags_string = old_tags.map { |tag| %Q(TAG "#{tag.key}=#{tag.value}"\n) }.sort.join
     tags_string     = cfn_tags.map { |k, v| %Q(TAG "#{k.to_s}=#{v}"\n) }.sort.join
 
     # Sort the parameter strings alphabetically to make them easily comparable
     old_parameters_string = old_parameters.sort.map { |key, value| %Q(PARAMETER "#{key}=#{value}"\n) }.join
-    parameters_string     = template.parameters.sort.map do |key, value|
-      value = old_parameters[key] if value.empty? && value.use_previous_value && !old_parameters[key].to_s.empty?
-      value = value.default if value.empty? && !value.default.to_s.empty?
-      "PARAMETER \"#{key}=#{value}\"\n"
-    end.join
+    new_parameters_string = new_parameters.sort.map { |key, value| %Q(PARAMETER "#{key}=#{value}"\n) }.join
+    # parameters_string     = template.parameters.sort.map do |key, value|
+    #   value = old_parameters[key] if value.empty? && value.use_previous_value && !old_parameters[key].to_s.empty?
+    #   value = value.default if value.empty? && !value.default.to_s.empty?
+    #   "PARAMETER \"#{key}=#{value}\"\n"
+    # end.join
 
     # set default diff options
     Diffy::Diff.default_options.merge!(
@@ -300,7 +306,7 @@ template.rb create --stack-name my_stack --parameters "BucketName=bucket-s3-stat
     Diffy::Diff.default_format = :color
 
     tags_diff     = Diffy::Diff.new(old_tags_string, tags_string).to_s.strip!
-    params_diff   = Diffy::Diff.new(old_parameters_string, parameters_string).to_s.strip!
+    params_diff   = Diffy::Diff.new(old_parameters_string, new_parameters_string).to_s.strip!
     template_diff = Diffy::Diff.new(old_template, template_string).to_s.strip!
 
     if !tags_diff.empty?
@@ -492,7 +498,11 @@ template.rb create --stack-name my_stack --parameters "BucketName=bucket-s3-stat
     immutables_exist = nil
 
     old_parameters = Hash[old_stack.parameters.map { |p| [p.parameter_key, p.parameter_value]}]
-    new_parameters = template.parameters
+    new_parameters = template.parameters.map do |key, value|
+      value = Parameter.new(old_parameters[key]) if value.is_default && value.use_previous_value && !old_parameters[key].to_s.empty?
+      [key, value]
+    end.to_h
+
     excised_parameters.each do |extension_attribute, parameters|
       if !parameters.empty?
         parameters.sort.each do |param|
@@ -535,16 +545,16 @@ template.rb create --stack-name my_stack --parameters "BucketName=bucket-s3-stat
     end
 
     # Apply any default parameter values
-    apply_parameter_defaults(template.parameters)
+    # apply_parameter_defaults(template.parameters)
 
     # Compare the sorted arrays of parameters for an exact match and print difference.
-    old_parameters = old_stack.parameters.map { |p| [p.parameter_key, p.parameter_value]}.sort
-    new_parameters = template.parameters.sort
+    # old_parameters = old_stack.parameters.map { |p| [p.parameter_key, p.parameter_value]}.sort
+    # new_parameters = template.parameters.sort
     if new_parameters != old_parameters
       puts "\nCloudFormation stack parameters that do not match and will be updated:" +
-               "\n" + (old_parameters - new_parameters).map {|param| "< #{param}" }.join("\n") +
+               "\n" + (old_parameters.to_a - new_parameters.to_a).map {|param| "< #{param}" }.join("\n") +
                "\n" + "---" +
-               "\n" + (new_parameters - old_parameters).map {|param| "> #{param}"}.join("\n")
+               "\n" + (new_parameters.to_a - old_parameters.to_a).map {|param| "> #{param}"}.join("\n")
     end
 
     # Compare the sorted arrays of tags for an exact match and print difference.
@@ -564,7 +574,8 @@ template.rb create --stack-name my_stack --parameters "BucketName=bucket-s3-stat
       update_stack_opts = {
           stack_name: stack_name,
           template_body: template_string,
-          parameters: template.parameters.map { |k,v| (v.use_previous_value && old_parameters.include?([k,v])) ? {parameter_key: k, use_previous_value: v.use_previous_value.to_s} : {parameter_key: k, parameter_value: v}}.to_a,
+          parameters: new_parameters.map { |k, v| {parameter_key: k, parameter_value: v} }.to_a,
+          # parameters: template.parameters.map { |k,v| (v.use_previous_value && old_parameters.include?([k,v])) ? {parameter_key: k, use_previous_value: v.use_previous_value.to_s} : {parameter_key: k, parameter_value: v}}.to_a,
           tags: cfn_tags.map { |k,v| {"key" => k.to_s, "value" => v.to_s} }.to_a,
           capabilities: ["CAPABILITY_NAMED_IAM"],
       }

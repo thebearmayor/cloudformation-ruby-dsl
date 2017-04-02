@@ -53,7 +53,7 @@ def default_region
 end
 
 class Parameter < String
-  attr_accessor :default, :use_previous_value
+  attr_accessor :default, :use_previous_value, :is_default
 
   def initialize string
     super string.to_s
@@ -86,10 +86,13 @@ class TemplateDSL < JsonObjectDSL
   def parameter(name, options)
     default(:Parameters, {})[name] = options
 
-    if @interactive
-      @parameters[name] ||= Parameter.new(_get_parameter_from_cli(name, options))
-    else
-      @parameters[name] ||= Parameter.new('')
+    if !@parameters[name]
+      if @interactive
+        @parameters[name] = Parameter.new(_get_parameter_from_cli(name, options))
+      else
+        @parameters[name] = Parameter.new(options[:Default])
+        @parameters[name].is_default = true
+      end
     end
 
     # set various param options
